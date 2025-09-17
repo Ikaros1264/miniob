@@ -144,7 +144,6 @@ RC Table::destroy(const char* dir) {
 
     const int index_num = table_meta_.index_num();
     for (int i = 0; i < index_num; i++) {
-        // ((BplusTreeIndex*)indexes_[i])->close();
         const IndexMeta* index_meta = table_meta_.index(i);
         std::string index_file = table_index_file(dir, name(), index_meta->name());
         if(unlink(index_file.c_str()) != 0) {
