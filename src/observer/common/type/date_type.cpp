@@ -24,11 +24,11 @@ See the Mulan PSL v2 for more details. */
 #include <ctime>
 
 // 日期格式验证和转换辅助函数
-static bool is_leap_year(int year) {
+bool is_leap_year(int year) {
   return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
 
-static bool is_valid_date(int year, int month, int day) {
+bool is_valid_date(int year, int month, int day) {
   if (year < 1900 || year > 2100) return false;
   if (month < 1 || month > 12) return false;
   if (day < 1) return false;
@@ -41,17 +41,17 @@ static bool is_valid_date(int year, int month, int day) {
   return day <= days_in_month[month - 1];
 }
 
-static int date_to_int(int year, int month, int day) {
+int date_to_int(int year, int month, int day) {
   return year * 10000 + month * 100 + day;
 }
 
-static void int_to_date(int date_int, int &year, int &month, int &day) {
+void int_to_date(int date_int, int &year, int &month, int &day) {
   year = date_int / 10000;
   month = (date_int % 10000) / 100;
   day = date_int % 100;
 }
 
-static bool parse_date_string(const string &date_str, int &year, int &month, int &day) {
+bool parse_date_string(const string &date_str, int &year, int &month, int &day) {
   // 只支持格式: YYYY-MM-DD
   std::regex date_regex(R"(^(\d{4})-(\d{1,2})-(\d{1,2})$)");
   std::smatch matches;
@@ -155,15 +155,18 @@ RC DateType::negative(const Value &val, Value &result) const
 
 RC DateType::set_value_from_str(Value &val, const string &data) const
 {
-  int year, month, day;
-  if (!parse_date_string(data, year, month, day)) {
-    LOG_WARN("invalid date format: %s", data.c_str());
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  RC                rc = RC::SUCCESS;
+  stringstream deserialize_stream;
+  deserialize_stream.clear();  // 清理stream的状态，防止多次解析出现异常
+  deserialize_stream.str(data);
+  int int_value;
+  deserialize_stream >> int_value;
+  if (!deserialize_stream || !deserialize_stream.eof()) {
+    rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  } else {
+    val.set_int(int_value);
   }
-  LOG_INFO("set_value_from_str: parsed date - year: %d, month: %d, day: %d", year, month, day);
-  int date_int = date_to_int(year, month, day);
-  val.value_.int_value_ = date_int;
-  return RC::SUCCESS;
+  return rc;
 }
 
 RC DateType::to_string(const Value &val, string &result) const
@@ -171,7 +174,6 @@ RC DateType::to_string(const Value &val, string &result) const
   int date_int = val.value_.int_value_;
   int year, month, day;
   int_to_date(date_int, year, month, day);
-  LOG_INFO("to_string: date int: %d, year: %d, month: %d, day: %d", date_int, year, month, day);
   
   stringstream ss;
   ss << year << "-" << (month < 10 ? "0" : "") << month << "-" << (day < 10 ? "0" : "") << day;

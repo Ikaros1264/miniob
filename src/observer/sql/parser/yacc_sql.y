@@ -446,7 +446,7 @@ value:
     }
     |DATE_SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
-      $$ = new Value(AttrType::DATES, tmp);
+      $$ = new Value(tmp);
       free(tmp);
     }
     |SSS {
