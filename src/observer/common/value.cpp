@@ -220,7 +220,7 @@ void Value::set_value(const Value &value)
       set_boolean(value.get_boolean());
     } break;
     case AttrType::DATES: {
-      set_date(value.get_int());
+      set_date(value.get_date());
     } break;
     default: {
       ASSERT(false, "got an invalid value type");
