@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
 #include "common/type/string_t.h"
+#include <cstdint>
 
 /**
  * @brief 属性的值
@@ -36,6 +37,7 @@ public:
   friend class BooleanType;
   friend class CharType;
   friend class VectorType;
+  friend class DateType;
 
   Value() = default;
 

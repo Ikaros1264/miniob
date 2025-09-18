@@ -88,6 +88,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         INT_T
         STRING_T
         FLOAT_T
+        DATE_T
         VECTOR_T
         HELP
         EXIT
@@ -154,6 +155,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <cstring> ID
+%token <cstring> DATE_SSS
 %token <cstring> SSS
 //非终结符
 
@@ -380,6 +382,7 @@ type:
     INT_T      { $$ = static_cast<int>(AttrType::INTS); }
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     | VECTOR_T { $$ = static_cast<int>(AttrType::VECTORS); }
     ;
 primary_key:
@@ -440,6 +443,11 @@ value:
     |FLOAT {
       $$ = new Value((float)$1);
       @$ = @1;
+    }
+    |DATE_SSS {
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = new Value(AttrType::DATES, tmp);
+      free(tmp);
     }
     |SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
