@@ -18,6 +18,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/aggregate_vec_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
+#include "sql/operator/update_logical_operator.h"
+#include "sql/operator/update_physical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/delete_physical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
@@ -43,6 +45,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/scalar_group_by_physical_operator.h"
 #include "sql/operator/table_scan_vec_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
+#include "physical_plan_generator.h"
 
 using namespace std;
 
@@ -69,6 +72,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
     case LogicalOperatorType::INSERT: {
       return create_plan(static_cast<InsertLogicalOperator &>(logical_operator), oper, session);
+    } break;
+
+    case LogicalOperatorType::UPDATE: {
+      return create_plan(static_cast<UpdateLogicalOperator &>(logical_operator), oper, session);
     } break;
 
     case LogicalOperatorType::DELETE: {
@@ -249,6 +256,24 @@ RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;
+}
+
+RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_operator, unique_ptr<PhysicalOperator> &oper, Session* session)
+{
+  RC rc = RC::SUCCESS;
+
+  oper = std::make_unique<UpdatePhysicalOperator>(
+      logical_operator.table(), logical_operator.field_meta(), logical_operator.value());
+  auto children = std::move(logical_operator.children());
+  if (!children.empty()) {
+    std::unique_ptr<PhysicalOperator> child_oper;
+    if (rc = create(*children[0], child_oper, session); OB_FAIL(rc)) {
+      LOG_WARN("failed to create child physical operator. rc=%s", strrc(rc));
+      return rc;
+    }
+    oper->add_child(std::move(child_oper));
+  }
+  return rc;
 }
 
 RC PhysicalPlanGenerator::create_plan(DeleteLogicalOperator &delete_oper, unique_ptr<PhysicalOperator> &oper, Session* session)

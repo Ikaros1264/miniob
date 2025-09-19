@@ -201,6 +201,21 @@ public:
     return RC::SUCCESS;
   }
 
+  RC set_cell_at(int index, Value &cell, char *data = nullptr) const
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    const FieldExpr *field_expr = speces_[index];
+    const FieldMeta *field_meta = field_expr->field().meta();
+
+    memcpy(data + field_meta->offset(), cell.data(), field_meta->len());
+
+    return RC::SUCCESS;
+  }
+
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
     const Field &field = speces_[index]->field();

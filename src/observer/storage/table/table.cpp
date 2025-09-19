@@ -34,6 +34,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/lsm_record_scanner.h"
 #include "storage/table/heap_table_engine.h"
 #include "storage/table/lsm_table_engine.h"
+#include "table.h"
 
 Table::~Table()
 {
@@ -311,6 +312,11 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
 RC Table::delete_record(const Record &record)
 {
   return engine_->delete_record(record);
+}
+
+RC Table::update_index(const Record &old_record, const Record &new_record)
+{
+  return engine_->update_index(old_record, new_record);
 }
 
 Index *Table::find_index(const char *index_name) const

@@ -103,6 +103,19 @@ RC HeapTableEngine::delete_record(const Record &record)
   return rc;
 }
 
+RC HeapTableEngine::update_index(const Record &old_record, const Record &new_record)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->update_entry(old_record.data(), new_record.data(), &old_record.rid());
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to update index. table=%s, index=%s, rc=%s", 
+              table_->name(), index->index_meta().name(), strrc(rc));
+    }
+  }
+  return rc;
+}
+
 RC HeapTableEngine::get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode)
 {
   scanner = new HeapRecordScanner(table_, *data_buffer_pool_, trx, db_->log_handler(), mode, nullptr);

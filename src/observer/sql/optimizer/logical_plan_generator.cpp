@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
 #include "sql/operator/insert_logical_operator.h"
+#include "sql/operator/update_logical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/logical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
@@ -33,6 +34,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/insert_stmt.h"
 #include "sql/stmt/select_stmt.h"
+#include "sql/stmt/update_stmt.h"
 #include "sql/stmt/stmt.h"
 
 #include "sql/expr/expression_iterator.h"
@@ -60,6 +62,12 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
       InsertStmt *insert_stmt = static_cast<InsertStmt *>(stmt);
 
       rc = create_plan(insert_stmt, logical_operator);
+    } break;
+
+    case StmtType::UPDATE: {
+      UpdateStmt* update_stmt = static_cast<UpdateStmt *>(stmt);
+
+      rc = create_plan(update_stmt, logical_operator);
     } break;
 
     case StmtType::DELETE: {
@@ -234,6 +242,32 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
 
   InsertLogicalOperator *insert_operator = new InsertLogicalOperator(table, values);
   logical_operator.reset(insert_operator);
+  return RC::SUCCESS;
+}
+
+RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<LogicalOperator> &logical_operator)
+{
+  Table                      *table = update_stmt->table();
+
+  unique_ptr<TableGetLogicalOperator> table_get_operator(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
+
+  unique_ptr<LogicalOperator> predicate_operator;
+  RC                          rc = create_plan(update_stmt->filter_stmt(), predicate_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  logical_operator = std::make_unique<UpdateLogicalOperator>(
+      update_stmt->table(), update_stmt->field_meta(), update_stmt->value());
+  // update 算子 -> select 算子 -> 扫表
+  // update -> predicate -> table_get
+  if (predicate_operator) {
+    predicate_operator->add_child(std::move(table_get_operator));
+    logical_operator->add_child(std::move(predicate_operator));
+  } else {
+    logical_operator->add_child(std::move(table_get_operator));
+  }
   return RC::SUCCESS;
 }
 

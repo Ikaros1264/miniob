@@ -106,6 +106,9 @@ bool IndexNodeHandler::is_safe(BplusTreeOperationType op, bool is_root_node)
     case BplusTreeOperationType::READ: {
       return true;
     } break;
+    case BplusTreeOperationType::UPDATE: {
+      return true; // 更新不影响节点的结构
+    } break;
     case BplusTreeOperationType::INSERT: {
       return size() < max_size();
     } break;
@@ -1815,6 +1818,49 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
   }
 
   rc = delete_entry_internal(mtr, leaf_frame, key);
+  return rc;
+}
+
+RC BplusTreeHandler::update_entry(const char *old_user_key, const char *new_user_key, const RID *rid)
+{
+  MemPoolItem::item_unique_ptr pkey = mem_pool_item_->alloc_unique_ptr();
+  if (nullptr == pkey) {
+    LOG_WARN("Failed to alloc memory for key. size=%d", file_header_.key_length);
+    return RC::NOMEM;
+  }
+  char *key = static_cast<char *>(pkey.get());
+
+  memcpy(key, old_user_key, file_header_.attr_length);
+  memcpy(key + file_header_.attr_length, rid, sizeof(*rid));
+
+  MemPoolItem::item_unique_ptr new_pkey = make_key(new_user_key, *rid);
+  if (new_pkey == nullptr) {
+    LOG_WARN("Failed to alloc memory for key.");
+    return RC::NOMEM;
+  }
+  // char *new_key = static_cast<char *>(new_pkey.get());
+
+  BplusTreeOperationType op = BplusTreeOperationType::UPDATE;
+
+  RC rc = RC::SUCCESS;
+
+  BplusTreeMiniTransaction mtr(*this, &rc);
+
+  Frame *leaf_frame = nullptr;
+
+  rc = find_leaf(mtr, op, key, leaf_frame);
+  if (rc == RC::EMPTY) {
+    rc = RC::RECORD_NOT_EXIST;
+    return rc;
+  }
+
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to find leaf page. rc =%s", strrc(rc));
+    return rc;
+  }
+
+  // rc = update_entry_internal(mtr, leaf_frame, new_key);
+  return RC::SUCCESS;
   return rc;
 }
 

@@ -47,6 +47,7 @@ enum class BplusTreeOperationType
   READ,
   INSERT,
   DELETE,
+  UPDATE,
 };
 
 /**
@@ -492,6 +493,8 @@ public:
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
   RC delete_entry(const char *user_key, const RID *rid);
+
+  RC update_entry(const char *old_user_key, const char *new_user_key, const RID *rid);
 
   bool is_empty() const;
 
