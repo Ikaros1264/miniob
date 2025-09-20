@@ -61,32 +61,94 @@ public:
 
   static RC add(const Value &left, const Value &right, Value &result)
   {
+    if(left.attr_type_ == AttrType::NULLS || right.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(result.attr_type())->add(left, right, result);
   }
 
   static RC subtract(const Value &left, const Value &right, Value &result)
   {
+    if(left.attr_type_ == AttrType::NULLS || right.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(result.attr_type())->subtract(left, right, result);
   }
 
   static RC multiply(const Value &left, const Value &right, Value &result)
   {
+    if(left.attr_type_ == AttrType::NULLS || right.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(result.attr_type())->multiply(left, right, result);
   }
 
   static RC divide(const Value &left, const Value &right, Value &result)
   {
+    if(left.attr_type_ == AttrType::NULLS || right.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(result.attr_type())->divide(left, right, result);
   }
 
   static RC negative(const Value &value, Value &result)
   {
+    if(value.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(result.attr_type())->negative(value, result);
   }
 
   static RC cast_to(const Value &value, AttrType to_type, Value &result)
   {
+    if(value.attr_type_ == AttrType::NULLS){
+      result.set_null();
+      return RC::SUCCESS;
+    }
     return DataType::type_instance(value.attr_type())->cast_to(value, to_type, result);
+  }
+
+  static RC max(const Value &&left, const Value &&right, Value &result)
+  {
+    int cmp = left.compare(right);
+    if(cmp > 0)result = left;
+    else if(cmp < 0)result = right;
+    return RC::SUCCESS;
+  }
+
+  static RC min(const Value &&left, const Value &&right, Value &result)
+  {
+    int cmp = left.compare(right);
+    if(cmp < 0)result = left;
+    else if(cmp > 0)result = right;
+    return RC::SUCCESS;
+  }
+
+  static RC avg(const Value &val, Value &result, Value& num)
+  {
+    Value float_result;
+    RC rc = RC::SUCCESS;
+
+    num.set_int(num.get_int() + 1);
+    if(val.attr_type() != AttrType::FLOATS){
+      rc = cast_to(val, AttrType::FLOATS, float_result);
+      if(rc != RC::SUCCESS) return rc;
+      result.set_float(result.get_float() + float_result.get_float());
+    } else
+      result.set_float(result.get_float() + val.get_float());
+    
+    return rc;
+  }
+
+  static RC count(Value &result)
+  {
+    result.set_int(result.get_int() + 1);
+    return RC::SUCCESS;
   }
 
   void set_type(AttrType type) { this->attr_type_ = type; }
@@ -123,6 +185,7 @@ public:
   void set_string_from_other(const Value &other);
   void set_boolean(bool val);
   void set_date(int val);
+  void set_null();
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;

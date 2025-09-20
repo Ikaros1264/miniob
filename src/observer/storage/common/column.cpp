@@ -131,7 +131,7 @@ RC Column::append_value(const Value &value)
 
   size_t total_bytes = std::min(value.length(), attr_len_);
   memcpy(data_ + count_ * attr_len_, value.data(), total_bytes);
-  if (total_bytes < attr_len_)
+  if (total_bytes < (size_t)attr_len_)
     data_[count_ * attr_len_ + total_bytes] = 0;
 
   count_ += 1;

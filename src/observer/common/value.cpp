@@ -170,6 +170,13 @@ void Value::set_date(int val)
   length_            = sizeof(val);
 }
 
+void Value::set_null()
+{
+  reset();
+  attr_type_         = AttrType::NULLS;
+  length_            = 0;
+}
+
 void Value::set_string(const char *s, int len /*= 0*/)
 {
   reset();
