@@ -24,7 +24,6 @@ public:
 
   virtual RC accumulate(const Value &value) = 0;
   virtual RC evaluate(Value &result)        = 0;
-  virtual RC evaluate(Value &result, bool group_by) = 0;
 
 protected:
   Value value_;
@@ -35,7 +34,6 @@ class SumAggregator : public Aggregator
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
-  RC evaluate(Value &result, bool group_by) override { return evaluate(result); }
 };
 
 class MaxAggregator : public Aggregator
@@ -43,7 +41,6 @@ class MaxAggregator : public Aggregator
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
-  RC evaluate(Value &result, bool group_by) override { return evaluate(result); }
 };
 
 class MinAggregator : public Aggregator
@@ -51,7 +48,6 @@ class MinAggregator : public Aggregator
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
-  RC evaluate(Value &result, bool group_by) override { return evaluate(result); }
 };
 
 class AvgAggregator : public Aggregator
@@ -62,14 +58,12 @@ private:
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
-  virtual RC evaluate(Value &result, bool group_by) override { return evaluate(result); }
 };
 
 class CountAggregator : public Aggregator
 {
 public:
   RC accumulate(const Value &value) override;
-  RC evaluate(Value &result, bool group_by) override;
-  RC evaluate(Value &result) override { return evaluate(result, false); }
+  RC evaluate(Value &result) override;
 };
 

@@ -117,11 +117,10 @@ RC CountAggregator::accumulate(const Value &value)
   return RC::SUCCESS;
 }
 
-RC CountAggregator::evaluate(Value& result, bool group_by)
+RC CountAggregator::evaluate(Value& result)
 {
   if (value_.attr_type() == AttrType::UNDEFINED) {
-    if (group_by) result.set_null();
-    else result = Value((int)0);
+    result = Value((int)0);
   }
   else result = value_;
   return RC::SUCCESS;
