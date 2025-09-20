@@ -1,0 +1,57 @@
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
+miniob is licensed under Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+         http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details. */
+
+//
+// Created by Ruiyang Xu on 2025/9/20.
+//
+
+#pragma once
+
+#include "sql/operator/physical_operator.h"
+#include <vector>
+
+/**
+ * @brief 更新物理算子
+ * @ingroup PhysicalOperator
+ */
+class OrderByPhysicalOperator : public PhysicalOperator
+{
+public:
+  OrderByPhysicalOperator(
+      std::vector<std::unique_ptr<Expression>>&& order_by, std::vector<bool>&& is_asc)
+      : order_by_(std::move(order_by)), is_asc_(std::move(is_asc))
+  {}
+
+  virtual ~OrderByPhysicalOperator() = default;
+
+  PhysicalOperatorType type() const override { return PhysicalOperatorType::ORDER_BY; }
+
+  RC open(Trx *trx) override;
+  RC next() override;
+  RC next(Tuple *upper_tuple) override;
+  RC close() override;
+
+  Tuple *current_tuple() override;
+
+private:
+  RC     fetch_next();
+  RC     quick_sort(Tuple *upper_tuple = nullptr);
+  bool   cmp(const vector<Value>& a_vals, const vector<Value>& b_vals);
+
+private:
+  std::vector<std::unique_ptr<Expression>> order_by_;
+  std::vector<bool>                        is_asc_;
+  bool                                     first_emited_ = false;
+  bool                                     have_value = false;
+  vector<ValueListTuple>                   value_list_;
+  vector<size_t>                           ids_;     
+  vector<vector<Value>>                    order_values_;        
+  size_t                                   current_id_;
+};

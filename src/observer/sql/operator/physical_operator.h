@@ -50,6 +50,7 @@ enum class PhysicalOperatorType
   INSERT,
   SCALAR_GROUP_BY,
   HASH_GROUP_BY,
+  ORDER_BY,
   GROUP_BY_VEC,
   AGGREGATE_VEC,
   EXPR_VEC,
@@ -80,6 +81,7 @@ public:
 
   virtual RC open(Trx *trx) = 0;
   virtual RC next() { return RC::UNIMPLEMENTED; }
+  virtual RC next(Tuple *upper_tuple) { return RC::UNIMPLEMENTED; }
   virtual RC next(Chunk &chunk) { return RC::UNIMPLEMENTED; }
   virtual RC close() = 0;
 
