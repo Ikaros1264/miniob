@@ -26,7 +26,7 @@ class InsertStmt;
 class InsertPhysicalOperator : public PhysicalOperator
 {
 public:
-  InsertPhysicalOperator(Table *table, vector<Value> &&values);
+  InsertPhysicalOperator(Table *table, std::vector<std::vector<Value>> &&values_set);
 
   virtual ~InsertPhysicalOperator() = default;
 
@@ -41,6 +41,6 @@ public:
   Tuple *current_tuple() override { return nullptr; }
 
 private:
-  Table        *table_ = nullptr;
-  vector<Value> values_;
+  Table                          *table_ = nullptr;
+  std::vector<std::vector<Value>> values_set_;
 };

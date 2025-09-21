@@ -17,8 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
-    : table_(table), values_(values), value_amount_(value_amount)
+InsertStmt::InsertStmt(Table *table, vector<vector<Value>>&& values_set)
+    : table_(table), values_set_(std::move(values_set))
 {}
 
 RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
@@ -38,16 +38,19 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  const Value     *values     = inserts.values.data();
-  const int        value_num  = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
-    LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
-    return RC::SCHEMA_FIELD_MISSING;
-  }
 
+  for(size_t id = 0; id < inserts.values.size(); id++){
+    const std::vector<Value>& values     = inserts.values[id];
+    const int                 value_num  = static_cast<int>(values.size());
+
+    if (field_num != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+  }
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  stmt = new InsertStmt(table, static_cast<std::vector<std::vector<Value>>>(inserts.values));
   return RC::SUCCESS;
 }
