@@ -19,114 +19,93 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-FilterStmt::~FilterStmt()
-{
-  for (FilterUnit *unit : filter_units_) {
-    delete unit;
-  }
-  filter_units_.clear();
-}
+// FilterStmt::~FilterStmt()
+// {
+//   for (FilterUnit *unit : filter_units_) {
+//     delete unit;
+//   }
+//   filter_units_.clear();
+// }
 
-RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt)
+RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *>* table_map, std::vector<ConditionSqlNode>& conditions, FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
-
   FilterStmt *tmp_stmt = new FilterStmt();
-  for (int i = 0; i < condition_num; i++) {
-    FilterUnit *filter_unit = nullptr;
 
-    rc = create_filter_unit(db, default_table, tables, conditions[i], filter_unit);
-    if (rc != RC::SUCCESS) {
-      delete tmp_stmt;
-      LOG_WARN("failed to create filter unit. condition index=%d", i);
-      return rc;
+  vector<unique_ptr<Expression>> bound_expressions;
+
+  auto bind_expression = [&](unique_ptr<Expression> &expr){
+    if (nullptr == expr) {
+      return RC::SUCCESS;
     }
-    tmp_stmt->filter_units_.push_back(filter_unit);
+
+    switch (expr->type())
+    {
+      case ExprType::UNBOUND_FIELD:{
+        auto unbound_field_expr = static_cast<UnboundFieldExpr *>(expr.get());
+
+        Table *table;
+        const FieldMeta *field_meta;
+
+        RC rc = get_table_and_field(db, default_table, table_map, table, field_meta, *unbound_field_expr);
+        if(rc != RC::SUCCESS)return rc;
+        
+        Field      field(table, field_meta);
+        FieldExpr *field_expr = new FieldExpr(field);
+        field_expr->set_name(table->name());
+        expr.reset(field_expr);
+      }break;
+      default:return RC::SUCCESS;
+    }
+    return RC::SUCCESS;
+  };
+  
+  for (auto& cond : conditions){
+    unique_ptr<Expression> expr(new ComparisonExpr(cond.comp, std::move(cond.left_expr), std::move(cond.right_expr)));
+    rc = expr->recursion(expr, bind_expression);
+    if(rc != RC::SUCCESS){
+        delete tmp_stmt;
+        return rc;
+    }
+    bound_expressions.emplace_back(std::move(expr));
   }
+
+  if(rc != RC::SUCCESS){
+    delete tmp_stmt;
+    return rc;
+  }
+
+  tmp_stmt->filter_units_.swap(bound_expressions);
 
   stmt = tmp_stmt;
   return rc;
 }
 
-RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    const RelAttrSqlNode &attr, Table *&table, const FieldMeta *&field)
+RC FilterStmt::get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *>* table_map, Table*& table, const FieldMeta*& field, UnboundFieldExpr& expr)
 {
-  if (common::is_blank(attr.relation_name.c_str())) {
+  table = nullptr;
+  const char *table_name = expr.table_name();
+  const char *field_name = expr.field_name();
+  if (common::is_blank(table_name)) {
     table = default_table;
-  } else if (nullptr != tables) {
-    auto iter = tables->find(attr.relation_name);
-    if (iter != tables->end()) {
+  } else {
+    auto iter = table_map->find(table_name);
+    if (iter != table_map->end()) {
       table = iter->second;
     }
-  } else {
-    table = db->find_table(attr.relation_name.c_str());
   }
   if (nullptr == table) {
-    LOG_WARN("No such table: attr.relation_name: %s", attr.relation_name.c_str());
+    LOG_WARN("No such table: attr.relation_name: %s", table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  field = table->table_meta().field(attr.attribute_name.c_str());
+  field = table->table_meta().field(field_name);
   if (nullptr == field) {
-    LOG_WARN("no such field in table: table %s, field %s", table->name(), attr.attribute_name.c_str());
+    LOG_WARN("no such field in table: table %s, field %s", table->name(), field_name);
     table = nullptr;
     return RC::SCHEMA_FIELD_NOT_EXIST;
   }
 
   return RC::SUCCESS;
-}
-
-RC FilterStmt::create_filter_unit(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    const ConditionSqlNode &condition, FilterUnit *&filter_unit)
-{
-  RC rc = RC::SUCCESS;
-
-  CompOp comp = condition.comp;
-  if (comp < EQUAL_TO || comp >= NO_OP) {
-    LOG_WARN("invalid compare operator : %d", comp);
-    return RC::INVALID_ARGUMENT;
-  }
-
-  filter_unit = new FilterUnit;
-
-  if (condition.left_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_left(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.left_value);
-    filter_unit->set_left(filter_obj);
-  }
-
-  if (condition.right_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_right(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.right_value);
-    filter_unit->set_right(filter_obj);
-  }
-
-  filter_unit->set_comp(comp);
-
-  // 检查两个类型是否能够比较
-  return rc;
 }

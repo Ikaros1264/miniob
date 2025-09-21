@@ -15,8 +15,57 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
+#include "expression.h"
 
 using namespace std;
+
+RC Expression::recursion(std::unique_ptr<Expression>& expr, 
+    const std::function<RC(std::unique_ptr<Expression>&)>& func)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  switch (expr->type())
+  {
+    case ExprType::ARITHMETIC:{
+      auto arithmetic_expr = static_cast<ArithmeticExpr*>(expr.get());
+
+       unique_ptr<Expression>        &left_expr  = arithmetic_expr->left();
+       unique_ptr<Expression>        &right_expr = arithmetic_expr->right();
+
+      RC rc = recursion(left_expr, func);
+      if (OB_FAIL(rc)) {
+        return rc;
+      }
+
+      rc = recursion(right_expr, func);
+      if (OB_FAIL(rc)) {
+        return rc;
+      }
+      return RC::SUCCESS;
+    }break;
+    case ExprType::COMPARISON:{
+      auto comparison_expr = static_cast<ComparisonExpr*>(expr.get());
+      // unique_ptr<Expression>         child_bound_expression;
+      unique_ptr<Expression>        &left_expr  = comparison_expr->left();
+      unique_ptr<Expression>        &right_expr = comparison_expr->right();
+  
+      RC rc = recursion(left_expr, func);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+
+      rc = recursion(right_expr, func);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      return RC::SUCCESS;
+    }break;
+    default:return func(expr);
+  }
+  return RC::SUCCESS;
+}
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
 {
@@ -142,6 +191,10 @@ ComparisonExpr::~ComparisonExpr() {}
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   RC  rc         = RC::SUCCESS;
+  if(left.attr_type() == AttrType::NULLS || right.attr_type() == AttrType::NULLS){
+    result = false;
+    return rc;
+  }
   int cmp_result = left.compare(right);
   result         = false;
   switch (comp_) {
@@ -466,16 +519,27 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const
   Value left_value;
   Value right_value;
 
+  if(left_ == nullptr) {
+    LOG_WARN("left expression is null");
+    return RC::INTERNAL;
+  }
   rc = left_->get_value(tuple, left_value);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
     return rc;
   }
-  rc = right_->get_value(tuple, right_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
+  if(arithmetic_type_ != Type::NEGATIVE) {
+    if(right_ == nullptr) {
+      LOG_WARN("right expression is null");
+      return RC::INTERNAL;
+    }
+    rc = right_->get_value(tuple, right_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
+
   return calc_value(left_value, right_value, value);
 }
 

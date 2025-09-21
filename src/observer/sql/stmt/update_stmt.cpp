@@ -53,7 +53,7 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt)
 
   std::unordered_map<std::string, Table *> table_map   = {{update_sql.relation_name, table}};
   FilterStmt                              *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db, table, &table_map, update_sql.conditions.data(), static_cast<int>(update_sql.conditions.size()), filter_stmt);
+  RC rc = FilterStmt::create(db, table, &table_map, update_sql.conditions, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;

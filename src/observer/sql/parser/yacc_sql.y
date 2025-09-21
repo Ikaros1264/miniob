@@ -453,16 +453,29 @@ values_list:
     ;
 
 value_list:
-    value
-    {
-      $$ = new vector<Value>;
-      $$->emplace_back(*$1);
+    expression {
+      $$ = new std::vector<Value>;
+      Value temp;
+      if(OB_FAIL($1->try_get_value(temp))){
+        yyerror(&@$, sql_string, sql_result, scanner, "error");
+        YYERROR;
+      }
+      $$->emplace_back(temp);
       delete $1;
     }
-    | value_list COMMA value { 
-      $$ = $1;
-      $$->emplace_back(*$3);
-      delete $3;
+    | expression COMMA value_list  {
+      Value temp;
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<Value>;
+      }
+      if(OB_FAIL($1->try_get_value(temp))){
+        yyerror(&@$, sql_string, sql_result, scanner, "error");
+        YYERROR;
+      }
+      $$->emplace($$->begin(), move(temp));
+      delete $1;
     }
     ;
 value:
@@ -674,63 +687,22 @@ condition_list:
     }
     | condition {
       $$ = new vector<ConditionSqlNode>;
-      $$->emplace_back(*$1);
+      $$->emplace_back(std::move(*$1));
       delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
-      $$->emplace_back(*$1);
+      $$->emplace_back(std::move(*$1));
       delete $1;
     }
     ;
 condition:
-    rel_attr comp_op value
+    expression comp_op expression
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
-      $$->left_attr = *$1;
-      $$->right_is_attr = 0;
-      $$->right_value = *$3;
+      $$->left_expr = unique_ptr<Expression>($1);
+      $$->right_expr = unique_ptr<Expression>($3);
       $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | value comp_op value 
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
-      $$->left_value = *$1;
-      $$->right_is_attr = 0;
-      $$->right_value = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | rel_attr comp_op rel_attr
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
-      $$->left_attr = *$1;
-      $$->right_is_attr = 1;
-      $$->right_attr = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | value comp_op rel_attr
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
-      $$->left_value = *$1;
-      $$->right_is_attr = 1;
-      $$->right_attr = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
     }
     ;
 

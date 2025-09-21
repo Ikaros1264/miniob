@@ -128,6 +128,8 @@ public:
    */
   virtual RC eval(Chunk &chunk, vector<uint8_t> &select) { return RC::UNIMPLEMENTED; }
 
+  RC recursion(std::unique_ptr<Expression> &expr, const std::function<RC(std::unique_ptr<Expression> &)> &func);
+
 protected:
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
