@@ -90,7 +90,7 @@ private:
 class KeyComparator
 {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(bool unique, AttrType type, int length) { attr_comparator_.init(type, length); unique_ = unique;}
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -99,7 +99,7 @@ public:
     int result = attr_comparator_(v1, v2);
     if (result != 0) {
       return result;
-    }
+    } else if(unique_) return 0;
 
     const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
     const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
@@ -108,6 +108,7 @@ public:
 
 private:
   AttrComparator attr_comparator_;
+  bool unique_ = false;
 };
 
 /**
@@ -180,6 +181,7 @@ struct IndexFileHeader
   int32_t  attr_length;        ///< 键值的长度
   int32_t  key_length;         ///< attr length + sizeof(RID)
   AttrType attr_type;          ///< 键值的类型
+  bool     unique;             ///< 是否唯一
 
   const string to_string() const
   {
@@ -188,6 +190,7 @@ struct IndexFileHeader
     ss << "attr_length:" << attr_length << ","
        << "key_length:" << key_length << ","
        << "attr_type:" << attr_type_to_string(attr_type) << ","
+       << "unique:" << unique << ","
        << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
@@ -460,9 +463,9 @@ public:
    * @param internal_max_size 内部节点最大大小
    * @param leaf_max_size 叶子节点最大大小
    */
-  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, AttrType attr_type, int attr_length,
+  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, const bool unique, AttrType attr_type, int attr_length,
       int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, int attr_length,
+  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, bool unique, int attr_length,
       int internal_max_size = -1, int leaf_max_size = -1);
 
   /**

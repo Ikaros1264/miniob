@@ -197,6 +197,7 @@ struct AnalyzeTableSqlNode
  */
 struct CreateIndexSqlNode
 {
+  bool   unique = false;  ///< 是否唯一索引
   string index_name;      ///< Index name
   string relation_name;   ///< Relation name
   string attribute_name;  ///< Attribute name
