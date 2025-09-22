@@ -465,7 +465,7 @@ public:
    */
   RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, const bool unique, AttrType attr_type, int attr_length,
       int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, bool unique, int attr_length,
+  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, bool unique, AttrType attr_type, int attr_length,
       int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
