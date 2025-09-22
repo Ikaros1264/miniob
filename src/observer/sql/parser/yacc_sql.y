@@ -480,7 +480,7 @@ value_list:
         yyerror(&@$, sql_string, sql_result, scanner, "error");
         YYERROR;
       }
-      $$->emplace($$->begin(), move(temp));
+      $$->emplace($$->begin(), std::move(temp));
       delete $1;
     }
     ;
