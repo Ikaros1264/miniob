@@ -96,6 +96,12 @@ struct SelectSqlNode
   vector<OrderByNode>            order_by;     ///< order by clause
 };
 
+struct JoinSqlNode
+{
+  std::vector<std::string>       relation_list;
+  vector<ConditionSqlNode>       condition_list;
+};
+
 /**
  * @brief 算术表达式计算的语法树
  * @ingroup SQLParser

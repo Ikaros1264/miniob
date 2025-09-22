@@ -99,6 +99,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         VALUES
         FROM
         WHERE
+        INNER
+        JOIN
         AND
         SET
         ON
@@ -138,7 +140,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<std::vector<Value>> *          values_list;
   vector<ConditionSqlNode> *                 condition_list;
   vector<RelAttrSqlNode> *                   rel_attr_list;
-  vector<string> *                           relation_list;
+  JoinSqlNode *                              relation_list;
+  JoinSqlNode *                              join_list;
   vector<string> *                           key_list;
   char *                                     cstring;
   int                                        number;
@@ -156,6 +159,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %destructor { delete $$; } <condition_list>
 // %destructor { delete $$; } <rel_attr_list>
 %destructor { delete $$; } <relation_list>
+%destructor { delete $$; } <join_list>
 %destructor { delete $$; } <key_list>
 
 %token <number> NUMBER
@@ -179,6 +183,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <values_list>         values_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
+%type <condition_list>      on
+%type <join_list>           join_list
 %type <cstring>             storage_format
 %type <key_list>            primary_key
 %type <key_list>            attr_list
@@ -544,12 +550,19 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
 
       if ($4 != nullptr) {
-        $$->selection.relations.swap(*$4);
+        $$->selection.relations.swap($4->relation_list);
+        $$->selection.conditions.swap($4->condition_list);
         delete $4;
       }
 
       if ($5 != nullptr) {
-        $$->selection.conditions.swap(*$5);
+        auto& conditions = $$->selection.conditions;
+        if(conditions.size()){
+          conditions.insert(conditions.begin(),
+            std::make_move_iterator($5->begin()), 
+            std::make_move_iterator($5->end()));
+        }
+        else conditions.swap(*$5);
         delete $5;
       }
 
@@ -656,18 +669,66 @@ relation:
     }
     ;
 rel_list:
-    relation {
-      $$ = new vector<string>();
-      $$->push_back($1);
-    }
-    | relation COMMA rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
+    relation join_list {
+      if ($2 != nullptr) {
+        $$ = $2;
       } else {
-        $$ = new vector<string>;
+        $$ = new JoinSqlNode;
+      }
+      $$->relation_list.emplace($$->relation_list.begin(), $1);
+    }
+    | relation join_list COMMA rel_list {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new JoinSqlNode;
+      }
+      if($2 != nullptr){
+        $$->relation_list.insert($$->relation_list.begin(), 
+          $2->relation_list.begin(), $2->relation_list.end());
+        auto& conditions = $$->condition_list;
+        conditions.insert(conditions.begin(), 
+          std::make_move_iterator($2->condition_list.begin()), 
+          std::make_move_iterator($2->condition_list.end()));
+      }
+      delete $2;
+      $$->relation_list.emplace($$->relation_list.begin(), $1);
+    }
+    ;
+
+join_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | INNER JOIN relation on join_list
+    {
+      if ($5 != nullptr) {
+        $$ = $5;
+      } else {
+        $$ = new JoinSqlNode;
       }
 
-      $$->insert($$->begin(), $1);
+      $$->relation_list.emplace($$->relation_list.begin(), $3);
+
+      if($4 != nullptr){
+        auto& conditions = $$->condition_list;
+        conditions.insert(conditions.end(),
+          std::make_move_iterator($4->begin()), 
+          std::make_move_iterator($4->end()));
+        delete $4;
+      }
+    }
+    ;
+
+on:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | ON condition_list
+    {
+      $$ = $2;
     }
     ;
 
